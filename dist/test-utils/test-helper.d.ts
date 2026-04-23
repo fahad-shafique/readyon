@@ -1,0 +1,33 @@
+import { TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import { DatabaseService } from '../database/database.service';
+import { BalanceRepository } from '../balance/balance.repository';
+import { RequestService } from '../request/request.service';
+import { RequestRepository } from '../request/request.repository';
+import { MockHcmAdapter } from '../integration/hcm/mock-hcm-adapter';
+import { AuditService } from '../audit/audit.service';
+import { IdempotencyService } from '../idempotency/idempotency.service';
+import { HoldRepository } from '../hold/hold.repository';
+import { OutboxRepository } from '../integration/outbox/outbox.repository';
+import { OutboxProcessor } from '../integration/outbox/outbox.processor';
+import { BatchSyncService } from '../integration/batch/batch-sync.service';
+import { ReconciliationService } from '../integration/reconciliation/reconciliation.service';
+export interface TestContext {
+    app: INestApplication;
+    module: TestingModule;
+    dbService: DatabaseService;
+    requestService: RequestService;
+    requestRepo: RequestRepository;
+    balanceRepo: BalanceRepository;
+    holdRepo: HoldRepository;
+    outboxRepo: OutboxRepository;
+    outboxProcessor: OutboxProcessor;
+    batchSyncService: BatchSyncService;
+    reconciliationService: ReconciliationService;
+    auditService: AuditService;
+    idempotencyService: IdempotencyService;
+    mockHcm: MockHcmAdapter;
+}
+export declare function createTestContext(): Promise<TestContext>;
+export declare function seedTestData(ctx: TestContext): void;
+export declare function cleanupTestContext(ctx: TestContext): Promise<void>;
