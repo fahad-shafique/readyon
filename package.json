@@ -74,7 +74,12 @@
       "node_modules/(?!uuid/)"
     ],
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!main.ts",
+      "!**/*.module.ts",
+      "!**/*.dto.ts",
+      "!**/*.port.ts",
+      "!mock-hcm-server/**"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
