@@ -1,5 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../../database/database.service';
 import { BalanceRepository } from '../../balance/balance.repository';
 import { RequestRepository } from '../../request/request.repository';
@@ -15,7 +15,7 @@ export class ReconciliationService {
   private readonly logger = new Logger(ReconciliationService.name);
   private lastReconciledEmployeeId = '';
   private readonly batchSize = parseInt(process.env.RECONCILIATION_BATCH_SIZE || '50', 10);
-  private readonly autoRepairThreshold = parseFloat(process.env.RECONCILIATION_AUTO_REPAIR_THRESHOLD_HOURS || '8');
+  private readonly autoRepairThreshold = parseFloat(process.env.RECONCILIATION_AUTO_REPAIR_THRESHOLD_HOURS || '24');
 
   constructor(
     private readonly dbService: DatabaseService,
@@ -26,7 +26,7 @@ export class ReconciliationService {
     @Inject(HCM_ADAPTER_PORT) private readonly hcmAdapter: HcmAdapterPort,
   ) {}
 
-  @Cron('*/30 * * * *') // Every 30 minutes
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async runReconciliation(): Promise<void> {
     this.logger.log('Starting reconciliation run');
 

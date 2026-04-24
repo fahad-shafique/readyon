@@ -1,17 +1,21 @@
 import { Global, Module } from '@nestjs/common';
 import { HCM_ADAPTER_PORT } from './hcm-adapter.port';
-import { MockHcmAdapter } from './mock-hcm-adapter';
 import { CircuitBreaker } from './circuit-breaker';
+import { HttpHcmAdapter } from './http-hcm-adapter';
 
 /**
  * Provides the HCM adapter as a global module so all integration services can inject it.
+ *
+ * Production: HttpHcmAdapter (real HTTP calls to the HCM system).
+ * Testing:    MockHcmAdapter is injected via `.overrideProvider(HCM_ADAPTER_PORT)` in
+ *             `test-utils/test-helper.ts` — the mock MUST NOT be referenced here.
  */
 @Global()
 @Module({
   providers: [
     {
       provide: HCM_ADAPTER_PORT,
-      useClass: MockHcmAdapter,
+      useClass: HttpHcmAdapter,
     },
     CircuitBreaker,
   ],

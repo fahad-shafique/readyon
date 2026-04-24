@@ -15,6 +15,7 @@ var BatchSyncService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BatchSyncService = void 0;
 const common_1 = require("@nestjs/common");
+const schedule_1 = require("@nestjs/schedule");
 const database_service_1 = require("../../database/database.service");
 const balance_repository_1 = require("../../balance/balance.repository");
 const hold_repository_1 = require("../../hold/hold.repository");
@@ -192,6 +193,12 @@ let BatchSyncService = BatchSyncService_1 = class BatchSyncService {
     }
 };
 exports.BatchSyncService = BatchSyncService;
+__decorate([
+    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_10_SECONDS),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], BatchSyncService.prototype, "pullFromHcm", null);
 exports.BatchSyncService = BatchSyncService = BatchSyncService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(6, (0, common_1.Inject)(hcm_adapter_port_1.HCM_ADAPTER_PORT)),

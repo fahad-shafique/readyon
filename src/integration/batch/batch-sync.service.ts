@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../../database/database.service';
 import { BalanceRepository } from '../../balance/balance.repository';
 import { HoldRepository } from '../../hold/hold.repository';
@@ -199,6 +200,7 @@ export class BatchSyncService {
   /**
    * Pull-based batch sync (scheduled).
    */
+  @Cron(CronExpression.EVERY_10_SECONDS)
   async pullFromHcm(): Promise<BatchSyncResult | null> {
     try {
       const checkpoint = this.getCheckpoint();

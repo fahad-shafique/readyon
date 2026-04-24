@@ -9,8 +9,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HcmModule = void 0;
 const common_1 = require("@nestjs/common");
 const hcm_adapter_port_1 = require("./hcm-adapter.port");
-const mock_hcm_adapter_1 = require("./mock-hcm-adapter");
 const circuit_breaker_1 = require("./circuit-breaker");
+const http_hcm_adapter_1 = require("./http-hcm-adapter");
 let HcmModule = class HcmModule {
 };
 exports.HcmModule = HcmModule;
@@ -20,7 +20,7 @@ exports.HcmModule = HcmModule = __decorate([
         providers: [
             {
                 provide: hcm_adapter_port_1.HCM_ADAPTER_PORT,
-                useClass: mock_hcm_adapter_1.MockHcmAdapter,
+                useClass: http_hcm_adapter_1.HttpHcmAdapter,
             },
             circuit_breaker_1.CircuitBreaker,
         ],

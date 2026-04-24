@@ -115,7 +115,7 @@ describe('Integration Scenarios (e2e)', () => {
       const finalRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/requests/${requestId}`)
         .set('x-employee-id', EMP);
-      
+
       expect(finalRes.body.data.status).toBe(RequestStatus.APPROVED);
     });
   });
@@ -145,7 +145,7 @@ describe('Integration Scenarios (e2e)', () => {
       const balRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/balances?leave_type=${LEAVE_TYPE}`)
         .set('x-employee-id', EMP);
-      
+
       expect(balRes.body.data[0].effective_available).toBe(12);
     });
 
@@ -169,7 +169,7 @@ describe('Integration Scenarios (e2e)', () => {
       const balRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/balances?leave_type=${LEAVE_TYPE}`)
         .set('x-employee-id', EMP);
-      
+
       expect(balRes.body.data[0].total_balance).toBe(50);
     });
 
@@ -179,7 +179,7 @@ describe('Integration Scenarios (e2e)', () => {
 
       // Create request for Branch-A (should fail or be separate)
       const reqRes = await createRequest(EMP, LEAVE_TYPE, 8, '2027-01-01', 'loc-req', 'Branch-A');
-      
+
       // In current impl, it should fail with 404 because no balance found for Branch-A
       expect(reqRes.status).toBe(404);
     });
@@ -195,7 +195,7 @@ describe('Integration Scenarios (e2e)', () => {
       const balRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/balances?leave_type=PTO`)
         .set('x-employee-id', EMP);
-      
+
       expect(balRes.body.data[0].effective_available).toBe(40);
     });
   });
@@ -220,14 +220,14 @@ describe('Integration Scenarios (e2e)', () => {
       const finalRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/requests/${requestId}`)
         .set('x-employee-id', EMP);
-      
+
       expect(finalRes.body.data.status).toBe(RequestStatus.FAILED_HCM);
 
       // Verify balance hold was released (effective should be back to 20)
       const balRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/balances?leave_type=${LEAVE_TYPE}`)
         .set('x-employee-id', EMP);
-      
+
       expect(balRes.body.data[0].effective_available).toBe(20);
     });
 
@@ -247,14 +247,14 @@ describe('Integration Scenarios (e2e)', () => {
       await outboxProcessor.sweep();
       // Bypass backoff delay for test speed
       dbService.getDb().prepare("UPDATE integration_outbox SET next_retry_at = NULL").run();
-      
+
       let check = await request(app.getHttpServer()).get(`/api/v1/employees/me/requests/${requestId}`).set('x-employee-id', EMP);
       expect(check.body.data.status).toBe(RequestStatus.APPROVED_PENDING_HCM);
 
       // Second sweep -> fails (transient)
       await outboxProcessor.sweep();
       dbService.getDb().prepare("UPDATE integration_outbox SET next_retry_at = NULL").run();
-      
+
       check = await request(app.getHttpServer()).get(`/api/v1/employees/me/requests/${requestId}`).set('x-employee-id', EMP);
       expect(check.body.data.status).toBe(RequestStatus.APPROVED_PENDING_HCM);
 
@@ -294,7 +294,7 @@ describe('Integration Scenarios (e2e)', () => {
 
       // Fire 7 parallel requests. We use a small delay to avoid overwhelming the test server stack.
       const promises = Array.from({ length: 7 }).map(async (_, i) => {
-        await new Promise(resolve => setTimeout(resolve, i * 10)); 
+        await new Promise(resolve => setTimeout(resolve, i * 10));
         return agent
           .post('/api/v1/employees/me/requests')
           .set('x-employee-id', EMP)
@@ -302,8 +302,8 @@ describe('Integration Scenarios (e2e)', () => {
           .send({
             leave_type: LEAVE_TYPE,
             hours_requested: 2,
-            start_date: `2027-06-${10+i}`,
-            end_date: `2027-06-${10+i}`,
+            start_date: `2027-06-${10 + i}`,
+            end_date: `2027-06-${10 + i}`,
           });
       });
 
@@ -322,7 +322,7 @@ describe('Integration Scenarios (e2e)', () => {
 
       // Approve R2 first
       await approveRequest(r2.body.data.id, r2.body.data.version, MANAGER_ID, 'ooo-app-2');
-      
+
       // Approve R1
       await approveRequest(r1.body.data.id, r1.body.data.version, MANAGER_ID, 'ooo-app-1');
 
@@ -331,7 +331,7 @@ describe('Integration Scenarios (e2e)', () => {
       const balRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/balances?leave_type=${LEAVE_TYPE}`)
         .set('x-employee-id', EMP);
-      
+
       // Both should succeed, used balance should be 40
       expect(balRes.body.data[0].used_balance).toBe(40);
     });
@@ -340,7 +340,7 @@ describe('Integration Scenarios (e2e)', () => {
   describe('PHASE 5: Lifecycle Edge Cases', () => {
     it('should allow cancellation after approval but before HCM sync', async () => {
       await seedBalance(EMP, LEAVE_TYPE, 40, 0);
-      
+
       const reqRes = await createRequest(EMP, LEAVE_TYPE, 4, '2027-04-01', 'can-req');
       const requestId = reqRes.body.data.id;
 
@@ -352,19 +352,19 @@ describe('Integration Scenarios (e2e)', () => {
         .set('x-employee-id', EMP)
         .set('Idempotency-Key', 'can-can')
         .send({ version: reqRes.body.data.version + 1 });
-      
+
       expect(cancelRes.status).toBe(200);
-      
+
       const finalRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/requests/${requestId}`)
         .set('x-employee-id', EMP);
-      
+
       expect(finalRes.body.data.status).toBe(RequestStatus.CANCELLED);
     });
 
     it('should allow cancellation after HCM sync and trigger compensating transaction', async () => {
       await seedBalance(EMP, LEAVE_TYPE, 40, 0);
-      
+
       const reqRes = await createRequest(EMP, LEAVE_TYPE, 4, '2027-04-01', 'can-sync-req');
       expect(reqRes.status).toBe(201);
       const requestId = reqRes.body.data.id;
@@ -377,7 +377,7 @@ describe('Integration Scenarios (e2e)', () => {
       const syncRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/requests/${requestId}`)
         .set('x-employee-id', EMP);
-      
+
       expect(syncRes.body.data.status).toBe(RequestStatus.APPROVED);
 
       // Cancel
@@ -386,14 +386,14 @@ describe('Integration Scenarios (e2e)', () => {
         .set('x-employee-id', EMP)
         .set('Idempotency-Key', 'can-sync-can')
         .send({ version: syncRes.body.data.version });
-      
+
       expect(cancelRes.status).toBe(200);
 
       // Verify status is CANCELLED locally
       const finalRes = await request(app.getHttpServer())
         .get(`/api/v1/employees/me/requests/${requestId}`)
         .set('x-employee-id', EMP);
-      
+
       expect(finalRes.body.data.status).toBe(RequestStatus.CANCELLED);
     });
   });

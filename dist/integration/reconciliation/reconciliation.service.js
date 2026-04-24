@@ -34,7 +34,7 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
     logger = new common_1.Logger(ReconciliationService_1.name);
     lastReconciledEmployeeId = '';
     batchSize = parseInt(process.env.RECONCILIATION_BATCH_SIZE || '50', 10);
-    autoRepairThreshold = parseFloat(process.env.RECONCILIATION_AUTO_REPAIR_THRESHOLD_HOURS || '8');
+    autoRepairThreshold = parseFloat(process.env.RECONCILIATION_AUTO_REPAIR_THRESHOLD_HOURS || '24');
     constructor(dbService, balanceRepo, requestRepo, holdRepo, auditService, hcmAdapter) {
         this.dbService = dbService;
         this.balanceRepo = balanceRepo;
@@ -162,7 +162,7 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
 };
 exports.ReconciliationService = ReconciliationService;
 __decorate([
-    (0, schedule_1.Cron)('*/30 * * * *'),
+    (0, schedule_1.Cron)(schedule_1.CronExpression.EVERY_10_SECONDS),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)

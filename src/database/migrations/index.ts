@@ -223,15 +223,25 @@ export function runMigrations(db: Database.Database, logger: Logger): void {
     .all()
     .map((row: any) => row.version as number);
 
+  // Define a transactional migration runner
+  const applyMigration = db.transaction((migration: Migration) => {
+    logger.log(`Applying migration ${migration.version}: ${migration.name}`);
+    db.exec(migration.sql);
+    db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)').run(
+      migration.version,
+      migration.name,
+    );
+  });
+
   for (const migration of migrations) {
     if (!applied.includes(migration.version)) {
-      logger.log(`Applying migration ${migration.version}: ${migration.name}`);
-      db.exec(migration.sql);
-      db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)').run(
-        migration.version,
-        migration.name,
-      );
-      logger.log(`Migration ${migration.version} applied successfully`);
+      try {
+        applyMigration(migration);
+        logger.log(`Migration ${migration.version} applied successfully`);
+      } catch (error) {
+        logger.error(`Failed to apply migration ${migration.version}: ${(error as Error).message}`);
+        throw error;
+      }
     }
   }
 }
