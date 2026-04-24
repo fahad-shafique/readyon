@@ -12,6 +12,7 @@ A production-grade, transactional **Time-Off Management Microservice** built wit
 - [Key Design Decisions](#key-design-decisions)
 - [Quick Start](#quick-start)
 - [API Reference](#api-reference)
+- [How to test manually](#how-to-test-manually)
 - [System Invariants](#system-invariants)
 - [Concurrency & Safety Model](#concurrency--safety-model)
 - [HCM Integration](#hcm-integration)
@@ -206,36 +207,136 @@ All mutating endpoints require an `Idempotency-Key` header and return a `X-Corre
 |--------|----------|-------------|
 | `GET` | `/api/v1/health` | Health check |
 
-### Example: Full Request Lifecycle
+## How to test manually
 
+This guide explains how to perform a full system validation using the dual-server setup: **ReadyOn (Port 3000)** and the **Mock HCM Server (Port 3001)**.
+
+### 1. Bootstrapping the Environment
+
+Start both servers in separate terminals:
 ```bash
-# 1. Seed balance (via HCM integration)
+# Terminal 1
+npm run start:dev
+
+# Terminal 2
+npm run start:mock-hcm
+```
+
+Reset both systems to a clean state:
+```bash
+# Reset ReadyOn (drops SQLite tables and resets memory)
+curl -X POST http://localhost:3000/api/v1/integrations/hcm/mock-failures -H 'Content-Type: application/json' -d '{"reset": true}'
+
+# Reset Mock HCM Server (clears all balances, deductions, and logs)
+curl -X POST http://localhost:3001/admin/reset
+```
+
+### 2. The HCM "Source of Truth" (Port 3001)
+
+Before ReadyOn can process any requests, the external HCM must be seeded with data.
+
+**Seed an Employee Balance:**
+```bash
+curl -X POST http://localhost:3001/admin/balances \
+  -H 'Content-Type: application/json' \
+  -d '{"employee_id":"emp-001","leave_type":"PTO","total_balance":120,"used_balance":0}'
+```
+
+**Verify HCM State:**
+```bash
+# List all balances
+curl http://localhost:3001/admin/balances
+
+# Check server statistics
+curl http://localhost:3001/admin/stats
+```
+
+### 3. The Integration Flow (Syncing to ReadyOn)
+
+Now, inform ReadyOn about the balance so it can update its local projection.
+
+**Single Balance Update (Push):**
+```bash
 curl -X POST http://localhost:3000/api/v1/integrations/hcm/balance-update \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: seed-001' \
   -d '{"employee_id":"emp-001","leave_type":"PTO","total_balance":120,"used_balance":0,"hcm_version":"2026-01-01T00:00:00Z"}'
+```
 
-# 2. Check balance
-curl http://localhost:3000/api/v1/employees/me/balances \
-  -H 'X-Employee-Id: emp-001'
+**Verify Local Projection:**
+```bash
+curl http://localhost:3000/api/v1/employees/me/balances -H 'X-Employee-Id: emp-001'
+```
 
-# 3. Create request
+### 4. The Time-Off Lifecycle
+
+**Step A: Create Request (Creates a local Hold)**
+```bash
+# Note the 'id' and 'version' in the response
 curl -X POST http://localhost:3000/api/v1/employees/me/requests \
   -H 'Content-Type: application/json' \
   -H 'X-Employee-Id: emp-001' \
   -H 'Idempotency-Key: req-001' \
   -d '{"leave_type":"PTO","start_date":"2027-06-01","end_date":"2027-06-02","hours_requested":16,"reason":"Vacation"}'
+```
 
-# 4. Manager approves (use the request ID and version from step 3)
-curl -X POST http://localhost:3000/api/v1/managers/me/requests/{REQUEST_ID}/approve \
+**Step B: Manager Approval (Triggers Outbox Entry)**
+```bash
+# Replace {ID} with the ID from Step A
+curl -X POST http://localhost:3000/api/v1/managers/me/requests/{ID}/approve \
   -H 'Content-Type: application/json' \
   -H 'X-Employee-Id: manager-001' \
   -H 'Idempotency-Key: approve-001' \
   -d '{"version": 1}'
-
-# 5. Outbox processor automatically sends to HCM within 10 seconds
-# Request transitions: APPROVED_PENDING_HCM → APPROVED
 ```
+
+**Step C: Verification (Wait ~10 seconds)**
+1. **ReadyOn Status**: Check `/api/v1/employees/me/requests/{ID}`. Status should transition `APPROVED_PENDING_HCM` → `APPROVED`.
+2. **HCM Deduction**: Check `http://localhost:3001/admin/deductions`. You should see the confirmed record.
+3. **HCM Balance**: Check `http://localhost:3001/admin/balances`. `used_balance` should now be 16.
+
+### 5. Failure Injection & Resilience
+
+Test how the system handles HCM downtime or errors.
+
+**Inject a Transient Failure (Retry Test):**
+```bash
+# Next 2 calls to postTimeOff will fail with 500, then succeed
+curl -X POST http://localhost:3001/admin/failures \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"transient","countdown":0,"failure_count":2,"operation":"postTimeOff"}'
+```
+
+**Inject a Permanent Failure:**
+```bash
+# HCM returns 400 immediately. ReadyOn will release the hold and set status to FAILED_HCM.
+curl -X POST http://localhost:3001/admin/failures \
+  -H 'Content-Type: application/json' \
+  -d '{"mode":"permanent","operation":"postTimeOff"}'
+```
+
+**Set Global Network Delay:**
+```bash
+# Simulate a slow HCM (5 seconds latency) to test timeouts
+curl -X POST http://localhost:3001/admin/delay -H 'Content-Type: application/json' -d '{"delay_ms": 5000}'
+```
+
+### 6. What to Avoid (Common Pitfalls)
+
+*   **⚠️ Missing Idempotency Keys**: Mutating calls without the `Idempotency-Key` header will be rejected by ReadyOn.
+*   **⚠️ Stale Versions**: When approving or cancelling, you must provide the *exact* current `version` of the request. If another process updated it, your call will fail with a `409 Conflict`.
+*   **⚠️ Out-of-Sync Versions**: When seeding `balance-update` manually, ensure `hcm_version` is *newer* than what is already in ReadyOn. ReadyOn ignores older version updates to prevent stale data overwrites.
+*   **⚠️ Seeding only one side**: If you seed the balance on ReadyOn (3000) but forget the Mock HCM (3001), the approval will fail during the background sync because the HCM won't recognize the employee.
+*   **⚠️ Concurrent Modifications**: Avoid sending multiple approval requests for the same ID simultaneously without checking the version in between.
+
+### 7. Other Useful Admin Endpoints (Port 3001)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/log` | View last 50 requests received by the mock server |
+| `GET` | `/admin/deductions` | View all deductions processed by HCM |
+| `DELETE` | `/admin/failures` | Clear all active failure injection rules |
+| `GET` | `/health` | Check if the mock server is alive |
 
 ---
 
