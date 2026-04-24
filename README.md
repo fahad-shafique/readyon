@@ -138,6 +138,7 @@ npm run start:dev
 
 # Run tests
 npm test
+npm run test:e2e
 
 # Build for production
 npm run build
@@ -326,12 +327,18 @@ A scheduled task (every 30 minutes) compares local balances against HCM:
 
 ## Testing
 
+![Test Coverage](./test_coverage.png)
+
 ```bash
 # Run all tests
 npm test
 
 # Run with coverage
 npm run test:cov
+
+# Run E2E tests
+npm run test:e2e
+```
 
 # Run specific suite
 npx jest --testPathPattern="state-machine"
