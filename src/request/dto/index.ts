@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsOptional, Min, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, IsDateString, IsInt } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateTimeOffRequestDto {
   @IsString()
@@ -10,8 +11,9 @@ export class CreateTimeOffRequestDto {
   @IsDateString()
   end_date!: string;
 
-  @IsNumber()
-  @Min(0.01)
+  @Transform(({ value }) => parseInt(value, 10))
+  @IsInt()
+  @Min(1)
   hours_requested!: number;
 
   @IsOptional()

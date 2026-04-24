@@ -142,6 +142,12 @@ async function handlePostTimeOff(req, res) {
         const { statusCode, body: errBody } = getFailureResponse(failure.mode);
         return respond(res, statusCode, errBody);
     }
+    if (body.hours !== undefined) {
+        body.hours = parseInt(body.hours, 10);
+        if (isNaN(body.hours)) {
+            return respond(res, 400, { error: 'BAD_REQUEST', message: 'hours must be an integer' });
+        }
+    }
     const balanceKey = `${body.employee_id}:${body.leave_type}`;
     const balance = balances.get(balanceKey);
     if (!balance) {
@@ -231,8 +237,8 @@ async function handleAdmin(req, res, path) {
         case '/admin/balances':
             if (req.method === 'POST') {
                 balances.set(`${body.employee_id}:${body.leave_type}`, {
-                    total_balance: body.total_balance,
-                    used_balance: body.used_balance || 0,
+                    total_balance: parseInt(body.total_balance, 10),
+                    used_balance: body.used_balance !== undefined ? parseInt(body.used_balance, 10) : 0,
                     hcm_version: body.hcm_version || new Date().toISOString(),
                 });
                 return respond(res, 200, { status: 'OK', message: 'Balance set' });

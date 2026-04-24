@@ -32,6 +32,7 @@ async function createTestContext() {
     const app = module.createNestApplication();
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
+        forbidNonWhitelisted: true,
         transform: true,
         transformOptions: { enableImplicitConversion: true },
     }));

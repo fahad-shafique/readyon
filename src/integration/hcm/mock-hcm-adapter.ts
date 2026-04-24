@@ -100,7 +100,11 @@ export class MockHcmAdapter implements HcmAdapterPort {
 
   /** Set a balance for an employee+leaveType */
   setBalance(employeeId: string, leaveType: string, balance: MockBalance): void {
-    this.balances.set(`${employeeId}:${leaveType}`, { ...balance });
+    this.balances.set(`${employeeId}:${leaveType}`, {
+      total_balance: parseInt(balance.total_balance as any, 10),
+      used_balance: parseInt(balance.used_balance as any, 10),
+      hcm_version: balance.hcm_version,
+    });
   }
 
   /** Bulk-set balances */
@@ -209,6 +213,13 @@ export class MockHcmAdapter implements HcmAdapterPort {
 
     // ── Failure injection (AFTER idempotency) ──
     this.checkFailure('postTimeOff', request.employee_id, request.correlation_id);
+
+    if (request.hours !== undefined) {
+      request.hours = parseInt(request.hours as any, 10);
+      if (isNaN(request.hours)) {
+        throw new HcmPermanentError('HCM_BAD_REQUEST', 'hours must be an integer', request.correlation_id);
+      }
+    }
 
     const balanceKey = `${request.employee_id}:${request.leave_type}`;
     let balance = this.balances.get(balanceKey);

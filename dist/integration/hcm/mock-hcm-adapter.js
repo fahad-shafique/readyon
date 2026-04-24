@@ -27,7 +27,11 @@ let MockHcmAdapter = MockHcmAdapter_1 = class MockHcmAdapter {
         this.logger.log('Mock HCM Adapter initialized (enhanced)');
     }
     setBalance(employeeId, leaveType, balance) {
-        this.balances.set(`${employeeId}:${leaveType}`, { ...balance });
+        this.balances.set(`${employeeId}:${leaveType}`, {
+            total_balance: parseInt(balance.total_balance, 10),
+            used_balance: parseInt(balance.used_balance, 10),
+            hcm_version: balance.hcm_version,
+        });
     }
     setBalances(entries) {
         for (const entry of entries) {
@@ -96,6 +100,12 @@ let MockHcmAdapter = MockHcmAdapter_1 = class MockHcmAdapter {
             return existingResult.response;
         }
         this.checkFailure('postTimeOff', request.employee_id, request.correlation_id);
+        if (request.hours !== undefined) {
+            request.hours = parseInt(request.hours, 10);
+            if (isNaN(request.hours)) {
+                throw new hcm_errors_1.HcmPermanentError('HCM_BAD_REQUEST', 'hours must be an integer', request.correlation_id);
+            }
+        }
         const balanceKey = `${request.employee_id}:${request.leave_type}`;
         let balance = this.balances.get(balanceKey);
         if (!balance) {

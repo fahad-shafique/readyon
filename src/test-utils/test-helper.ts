@@ -64,6 +64,7 @@ export async function createTestContext(): Promise<TestContext> {
   const app = module.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
+    forbidNonWhitelisted: true,
     transform: true,
     transformOptions: { enableImplicitConversion: true },
   }));
