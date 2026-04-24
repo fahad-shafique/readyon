@@ -14,16 +14,17 @@ export class HoldRepository {
     requestId: string;
     employeeId: string;
     leaveType: string;
+    location: string;
     holdAmount: number;
   }): BalanceHoldRow {
     const id = generateId();
     this.dbService
       .getDb()
       .prepare(
-        `INSERT INTO balance_holds (id, request_id, employee_id, leave_type, hold_amount, status)
-         VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
+        `INSERT INTO balance_holds (id, request_id, employee_id, leave_type, location, hold_amount, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`,
       )
-      .run(id, params.requestId, params.employeeId, params.leaveType, params.holdAmount);
+      .run(id, params.requestId, params.employeeId, params.leaveType, params.location, params.holdAmount);
 
     return this.findById(id)!;
   }
@@ -41,14 +42,14 @@ export class HoldRepository {
     );
   }
 
-  findActiveByEmployeeAndType(employeeId: string, leaveType: string): BalanceHoldRow[] {
+  findActiveByEmployeeAndType(employeeId: string, leaveType: string, location: string): BalanceHoldRow[] {
     return this.dbService
       .getDb()
       .prepare(
         `SELECT * FROM balance_holds
-         WHERE employee_id = ? AND leave_type = ? AND status = 'ACTIVE'`,
+         WHERE employee_id = ? AND leave_type = ? AND location = ? AND status = 'ACTIVE'`,
       )
-      .all(employeeId, leaveType) as BalanceHoldRow[];
+      .all(employeeId, leaveType, location) as BalanceHoldRow[];
   }
 
   /**

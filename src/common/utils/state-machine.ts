@@ -12,7 +12,7 @@ const VALID_TRANSITIONS: Record<RequestStatus, RequestStatus[]> = {
     RequestStatus.FAILED_HCM,
     RequestStatus.CANCELLED,
   ],
-  [RequestStatus.APPROVED]: [RequestStatus.RECONCILIATION_REQUIRED],
+  [RequestStatus.APPROVED]: [RequestStatus.RECONCILIATION_REQUIRED, RequestStatus.CANCELLED],
   [RequestStatus.REJECTED]: [],
   [RequestStatus.CANCELLED]: [],
   [RequestStatus.FAILED_HCM]: [RequestStatus.RECONCILIATION_REQUIRED],

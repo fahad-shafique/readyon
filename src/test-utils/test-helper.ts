@@ -56,7 +56,10 @@ export async function createTestContext(): Promise<TestContext> {
 
   const module = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    .overrideProvider(HCM_ADAPTER_PORT)
+    .useClass(MockHcmAdapter)
+    .compile();
 
   const app = module.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({
@@ -97,6 +100,7 @@ export function seedTestData(ctx: TestContext): void {
   ctx.balanceRepo.create({
     employeeId: 'emp-001',
     leaveType: 'PTO',
+    location: 'HQ',
     totalBalance: 120,
     usedBalance: 0,
     hcmVersion: '2026-01-01T00:00:00Z',
@@ -105,6 +109,7 @@ export function seedTestData(ctx: TestContext): void {
   ctx.balanceRepo.create({
     employeeId: 'emp-001',
     leaveType: 'SICK',
+    location: 'HQ',
     totalBalance: 40,
     usedBalance: 8,
     hcmVersion: '2026-01-01T00:00:00Z',
@@ -113,6 +118,7 @@ export function seedTestData(ctx: TestContext): void {
   ctx.balanceRepo.create({
     employeeId: 'emp-002',
     leaveType: 'PTO',
+    location: 'HQ',
     totalBalance: 80,
     usedBalance: 16,
     hcmVersion: '2026-01-01T00:00:00Z',

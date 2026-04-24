@@ -188,6 +188,18 @@ const migrations = [
       );
     `,
     },
+    {
+        version: 9,
+        name: 'add_location_columns',
+        sql: `
+      ALTER TABLE balance_projections ADD COLUMN location TEXT;
+      ALTER TABLE time_off_requests ADD COLUMN location TEXT;
+      ALTER TABLE balance_holds ADD COLUMN location TEXT;
+      UPDATE balance_projections SET location = 'HQ' WHERE location IS NULL;
+      UPDATE time_off_requests SET location = 'HQ' WHERE location IS NULL;
+      UPDATE balance_holds SET location = 'HQ' WHERE location IS NULL;
+    `,
+    },
 ];
 function runMigrations(db, logger) {
     db.exec(`

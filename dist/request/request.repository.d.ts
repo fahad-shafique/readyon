@@ -8,6 +8,7 @@ export declare class RequestRepository {
         employeeId: string;
         managerId?: string;
         leaveType: string;
+        location: string;
         startDate: string;
         endDate: string;
         hoursRequested: number;

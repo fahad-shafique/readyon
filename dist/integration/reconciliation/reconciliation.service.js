@@ -57,7 +57,8 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
         let flagged = 0;
         for (const projection of projections) {
             try {
-                const result = await this.reconcileOne(projection.employee_id, projection.leave_type);
+                const loc = projection.location || 'HQ';
+                const result = await this.reconcileOne(projection.employee_id, projection.leave_type, loc);
                 checked++;
                 if (result === 'REPAIRED') {
                     driftsFound++;
@@ -75,13 +76,13 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
         }
         this.logger.log(`Reconciliation run complete: checked=${checked}, drifts=${driftsFound}, repaired=${repaired}, flagged=${flagged}`);
     }
-    async reconcileOne(employeeId, leaveType) {
+    async reconcileOne(employeeId, leaveType, location) {
         const hcmBalance = await this.hcmAdapter.getBalance({
             employee_id: employeeId,
             leave_type: leaveType,
             correlation_id: (0, utils_1.generateId)(),
         });
-        const local = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType);
+        const local = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType, location);
         if (!local) {
             this.logger.warn(`No local projection for ${employeeId}/${leaveType} during reconciliation`);
             return 'OK';
@@ -93,7 +94,7 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
         if (effectiveDrift === 0) {
             if (hcmBalance.hcm_version > local.hcm_version) {
                 this.dbService.runInTransaction(() => {
-                    this.balanceRepo.updateFromHcm(employeeId, leaveType, hcmBalance.total_balance, hcmBalance.used_balance, hcmBalance.hcm_version, local.version);
+                    this.balanceRepo.updateFromHcm(employeeId, leaveType, location, hcmBalance.total_balance, hcmBalance.used_balance, hcmBalance.hcm_version, local.version);
                 });
             }
             return 'OK';
@@ -103,15 +104,15 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
             `used: HCM=${hcmBalance.used_balance} vs local=${local.used_balance}+pending=${pendingHours})`);
         if (effectiveDrift <= this.autoRepairThreshold) {
             this.dbService.runInTransaction(() => {
-                const current = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType);
+                const current = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType, location);
                 if (!current)
                     return;
                 const beforeState = { ...current };
-                this.balanceRepo.updateFromHcm(employeeId, leaveType, hcmBalance.total_balance, hcmBalance.used_balance, hcmBalance.hcm_version, current.version);
+                this.balanceRepo.updateFromHcm(employeeId, leaveType, location, hcmBalance.total_balance, hcmBalance.used_balance, hcmBalance.hcm_version, current.version);
                 const newProjected = hcmBalance.total_balance - hcmBalance.used_balance;
-                const totalHeld = this.balanceRepo.getActiveHoldsTotal(employeeId, leaveType);
+                const totalHeld = this.balanceRepo.getActiveHoldsTotal(employeeId, leaveType, location);
                 if (newProjected - totalHeld < 0) {
-                    this.flagActiveHoldsForReconciliation(employeeId, leaveType);
+                    this.flagActiveHoldsForReconciliation(employeeId, leaveType, location);
                 }
                 this.auditService.logInTransaction({
                     entityType: types_1.EntityType.BALANCE,
@@ -127,7 +128,7 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
             return 'REPAIRED';
         }
         this.dbService.runInTransaction(() => {
-            this.flagActiveHoldsForReconciliation(employeeId, leaveType);
+            this.flagActiveHoldsForReconciliation(employeeId, leaveType, location);
             this.auditService.logInTransaction({
                 entityType: types_1.EntityType.BALANCE,
                 entityId: `${employeeId}/${leaveType}`,
@@ -145,8 +146,8 @@ let ReconciliationService = ReconciliationService_1 = class ReconciliationServic
         });
         return 'FLAGGED';
     }
-    flagActiveHoldsForReconciliation(employeeId, leaveType) {
-        const activeHolds = this.holdRepo.findActiveByEmployeeAndType(employeeId, leaveType);
+    flagActiveHoldsForReconciliation(employeeId, leaveType, location) {
+        const activeHolds = this.holdRepo.findActiveByEmployeeAndType(employeeId, leaveType, location);
         for (const hold of activeHolds) {
             const request = this.requestRepo.findById(hold.request_id);
             if (request && request.status !== types_1.RequestStatus.RECONCILIATION_REQUIRED) {

@@ -3,6 +3,7 @@ export declare class CreateTimeOffRequestDto {
     start_date: string;
     end_date: string;
     hours_requested: number;
+    location?: string;
     reason?: string;
 }
 export declare class CancelRequestDto {

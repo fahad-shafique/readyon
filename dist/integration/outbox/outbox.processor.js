@@ -68,49 +68,85 @@ let OutboxProcessor = OutboxProcessor_1 = class OutboxProcessor {
         let processed = 0;
         for (const entry of entries) {
             try {
-                const request = this.requestRepo.findById(entry.request_id);
-                if (!request || request.status !== types_1.RequestStatus.APPROVED_PENDING_HCM) {
-                    this.logger.warn(`Request ${entry.request_id} no longer in APPROVED_PENDING_HCM, skipping outbox ${entry.id}`);
-                    this.outboxRepo.markFailed(entry.id, 'Request no longer in valid state', types_1.HcmErrorCategory.PERMANENT);
-                    continue;
-                }
                 const payload = JSON.parse(entry.payload);
-                const hcmRequest = {
-                    idempotency_key: entry.idempotency_key,
-                    employee_id: payload.employee_id,
-                    leave_type: payload.leave_type,
-                    start_date: payload.start_date,
-                    end_date: payload.end_date,
-                    hours: payload.hours,
-                    correlation_id: (0, utils_1.generateId)(),
-                };
-                const hcmResponse = await this.hcmAdapter.postTimeOff(hcmRequest);
-                this.dbService.runInTransaction(() => {
-                    const currentRequest = this.requestRepo.findById(entry.request_id);
-                    if (!currentRequest || currentRequest.status !== types_1.RequestStatus.APPROVED_PENDING_HCM) {
-                        this.logger.warn(`Request ${entry.request_id} changed during HCM call, skipping`);
-                        this.outboxRepo.markFailed(entry.id, 'Request state changed during HCM call', types_1.HcmErrorCategory.PERMANENT);
-                        return;
+                if (entry.action === types_1.OutboxAction.POST_TIME_OFF) {
+                    const request = this.requestRepo.findById(entry.request_id);
+                    if (!request || request.status !== types_1.RequestStatus.APPROVED_PENDING_HCM) {
+                        this.logger.warn(`Request ${entry.request_id} no longer in APPROVED_PENDING_HCM, skipping outbox ${entry.id}`);
+                        this.outboxRepo.markFailed(entry.id, 'Request no longer in valid state', types_1.HcmErrorCategory.PERMANENT);
+                        continue;
                     }
-                    this.requestRepo.updateStatus(entry.request_id, types_1.RequestStatus.APPROVED, currentRequest.version, {
-                        hcmReferenceId: hcmResponse.hcm_reference_id,
+                    const hcmRequest = {
+                        idempotency_key: entry.idempotency_key,
+                        employee_id: payload.employee_id,
+                        leave_type: payload.leave_type,
+                        start_date: payload.start_date,
+                        end_date: payload.end_date,
+                        hours: payload.hours,
+                        correlation_id: (0, utils_1.generateId)(),
+                    };
+                    const hcmResponse = await this.hcmAdapter.postTimeOff(hcmRequest);
+                    this.dbService.runInTransaction(() => {
+                        const currentRequest = this.requestRepo.findById(entry.request_id);
+                        if (!currentRequest || currentRequest.status !== types_1.RequestStatus.APPROVED_PENDING_HCM) {
+                            this.logger.warn(`Request ${entry.request_id} changed during HCM call, skipping`);
+                            this.outboxRepo.markFailed(entry.id, 'Request state changed during HCM call', types_1.HcmErrorCategory.PERMANENT);
+                            return;
+                        }
+                        this.requestRepo.updateStatus(entry.request_id, types_1.RequestStatus.APPROVED, currentRequest.version, {
+                            hcmReferenceId: hcmResponse.hcm_reference_id,
+                        });
+                        this.holdRepo.convert(entry.request_id);
+                        const loc = currentRequest.location || 'HQ';
+                        const projection = this.balanceRepo.findByEmployeeAndType(payload.employee_id, payload.leave_type, loc);
+                        if (projection) {
+                            this.balanceRepo.applyDeduction(payload.employee_id, payload.leave_type, loc, payload.hours, projection.version);
+                        }
+                        this.outboxRepo.markCompleted(entry.id);
+                        this.auditService.logInTransaction({
+                            entityType: types_1.EntityType.REQUEST,
+                            entityId: entry.request_id,
+                            action: 'HCM_DEDUCTION_CONFIRMED',
+                            actorType: types_1.ActorType.SYSTEM,
+                            actorId: 'outbox-processor',
+                            afterState: { status: types_1.RequestStatus.APPROVED, hcm_reference_id: hcmResponse.hcm_reference_id },
+                            metadata: { outbox_id: entry.id, hcm_version: hcmResponse.hcm_version },
+                        });
                     });
-                    this.holdRepo.convert(entry.request_id);
-                    const projection = this.balanceRepo.findByEmployeeAndType(payload.employee_id, payload.leave_type);
-                    if (projection) {
-                        this.balanceRepo.applyDeduction(payload.employee_id, payload.leave_type, payload.hours, projection.version);
+                }
+                else if (entry.action === types_1.OutboxAction.CANCEL_TIME_OFF) {
+                    const request = this.requestRepo.findById(entry.request_id);
+                    if (!request || request.status !== types_1.RequestStatus.CANCELLED) {
+                        this.logger.warn(`Request ${entry.request_id} no longer in CANCELLED, skipping outbox ${entry.id}`);
+                        this.outboxRepo.markFailed(entry.id, 'Request no longer in valid state', types_1.HcmErrorCategory.PERMANENT);
+                        continue;
                     }
-                    this.outboxRepo.markCompleted(entry.id);
-                    this.auditService.logInTransaction({
-                        entityType: types_1.EntityType.REQUEST,
-                        entityId: entry.request_id,
-                        action: 'HCM_DEDUCTION_CONFIRMED',
-                        actorType: types_1.ActorType.SYSTEM,
-                        actorId: 'outbox-processor',
-                        afterState: { status: types_1.RequestStatus.APPROVED, hcm_reference_id: hcmResponse.hcm_reference_id },
-                        metadata: { outbox_id: entry.id, hcm_version: hcmResponse.hcm_version },
+                    const hcmRequest = {
+                        idempotency_key: entry.idempotency_key,
+                        hcm_reference_id: payload.hcm_reference_id,
+                        employee_id: payload.employee_id,
+                        leave_type: payload.leave_type,
+                        correlation_id: (0, utils_1.generateId)(),
+                    };
+                    const hcmResponse = await this.hcmAdapter.cancelTimeOff(hcmRequest);
+                    this.dbService.runInTransaction(() => {
+                        const loc = request.location || 'HQ';
+                        const projection = this.balanceRepo.findByEmployeeAndType(payload.employee_id, payload.leave_type, loc);
+                        if (projection) {
+                            this.balanceRepo.applyDeduction(payload.employee_id, payload.leave_type, loc, -(request.hours_requested), projection.version);
+                        }
+                        this.outboxRepo.markCompleted(entry.id);
+                        this.auditService.logInTransaction({
+                            entityType: types_1.EntityType.REQUEST,
+                            entityId: entry.request_id,
+                            action: 'HCM_CANCELLATION_CONFIRMED',
+                            actorType: types_1.ActorType.SYSTEM,
+                            actorId: 'outbox-processor',
+                            afterState: { status: types_1.RequestStatus.CANCELLED, hcm_reference_id: payload.hcm_reference_id },
+                            metadata: { outbox_id: entry.id, hcm_version: hcmResponse.hcm_version },
+                        });
                     });
-                });
+                }
                 processed++;
                 this.logger.log(`Outbox entry ${entry.id} processed successfully (request: ${entry.request_id})`);
             }

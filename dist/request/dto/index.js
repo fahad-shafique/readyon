@@ -16,6 +16,7 @@ class CreateTimeOffRequestDto {
     start_date;
     end_date;
     hours_requested;
+    location;
     reason;
 }
 exports.CreateTimeOffRequestDto = CreateTimeOffRequestDto;
@@ -36,6 +37,11 @@ __decorate([
     (0, class_validator_1.Min)(0.01),
     __metadata("design:type", Number)
 ], CreateTimeOffRequestDto.prototype, "hours_requested", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateTimeOffRequestDto.prototype, "location", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),

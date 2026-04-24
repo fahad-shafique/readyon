@@ -21,11 +21,11 @@ let BalanceRepository = BalanceRepository_1 = class BalanceRepository {
     constructor(dbService) {
         this.dbService = dbService;
     }
-    findByEmployeeAndType(employeeId, leaveType) {
+    findByEmployeeAndType(employeeId, leaveType, location) {
         return (this.dbService
             .getDb()
-            .prepare('SELECT * FROM balance_projections WHERE employee_id = ? AND leave_type = ?')
-            .get(employeeId, leaveType) || null);
+            .prepare('SELECT * FROM balance_projections WHERE employee_id = ? AND leave_type = ? AND location = ?')
+            .get(employeeId, leaveType, location) || null);
     }
     findByEmployee(employeeId) {
         return this.dbService
@@ -33,11 +33,11 @@ let BalanceRepository = BalanceRepository_1 = class BalanceRepository {
             .prepare('SELECT * FROM balance_projections WHERE employee_id = ? ORDER BY leave_type')
             .all(employeeId);
     }
-    getActiveHoldsTotal(employeeId, leaveType, excludeRequestId) {
+    getActiveHoldsTotal(employeeId, leaveType, location, excludeRequestId) {
         let sql = `SELECT COALESCE(SUM(hold_amount), 0) as total
                FROM balance_holds
-               WHERE employee_id = ? AND leave_type = ? AND status = 'ACTIVE'`;
-        const params = [employeeId, leaveType];
+               WHERE employee_id = ? AND leave_type = ? AND location = ? AND status = 'ACTIVE'`;
+        const params = [employeeId, leaveType, location];
         if (excludeRequestId) {
             sql += ' AND request_id != ?';
             params.push(excludeRequestId);
@@ -45,11 +45,11 @@ let BalanceRepository = BalanceRepository_1 = class BalanceRepository {
         const row = this.dbService.getDb().prepare(sql).get(...params);
         return row.total;
     }
-    getEffectiveAvailable(employeeId, leaveType, excludeRequestId) {
-        const projection = this.findByEmployeeAndType(employeeId, leaveType);
+    getEffectiveAvailable(employeeId, leaveType, location, excludeRequestId) {
+        const projection = this.findByEmployeeAndType(employeeId, leaveType, location);
         if (!projection)
             return 0;
-        const held = this.getActiveHoldsTotal(employeeId, leaveType, excludeRequestId);
+        const held = this.getActiveHoldsTotal(employeeId, leaveType, location, excludeRequestId);
         return projection.projected_available - held;
     }
     create(params) {
@@ -57,12 +57,12 @@ let BalanceRepository = BalanceRepository_1 = class BalanceRepository {
         const projectedAvailable = params.totalBalance - params.usedBalance;
         this.dbService
             .getDb()
-            .prepare(`INSERT INTO balance_projections (id, employee_id, leave_type, total_balance, used_balance, projected_available, hcm_version)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`)
-            .run(id, params.employeeId, params.leaveType, params.totalBalance, params.usedBalance, projectedAvailable, params.hcmVersion);
-        return this.findByEmployeeAndType(params.employeeId, params.leaveType);
+            .prepare(`INSERT INTO balance_projections (id, employee_id, leave_type, location, total_balance, used_balance, projected_available, hcm_version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+            .run(id, params.employeeId, params.leaveType, params.location, params.totalBalance, params.usedBalance, projectedAvailable, params.hcmVersion);
+        return this.findByEmployeeAndType(params.employeeId, params.leaveType, params.location);
     }
-    applyDeduction(employeeId, leaveType, hours, expectedVersion) {
+    applyDeduction(employeeId, leaveType, location, hours, expectedVersion) {
         const result = this.dbService
             .getDb()
             .prepare(`UPDATE balance_projections
@@ -70,26 +70,26 @@ let BalanceRepository = BalanceRepository_1 = class BalanceRepository {
              projected_available = projected_available - ?,
              version = version + 1,
              updated_at = ?
-         WHERE employee_id = ? AND leave_type = ? AND version = ?`)
-            .run(hours, hours, (0, utils_1.nowISO)(), employeeId, leaveType, expectedVersion);
+         WHERE employee_id = ? AND leave_type = ? AND location = ? AND version = ?`)
+            .run(hours, hours, (0, utils_1.nowISO)(), employeeId, leaveType, location, expectedVersion);
         if (result.changes === 0) {
-            throw new exceptions_1.VersionConflictException('balance_projection', `${employeeId}/${leaveType}`);
+            throw new exceptions_1.VersionConflictException('balance_projection', `${employeeId}/${leaveType}/${location}`);
         }
-        return this.findByEmployeeAndType(employeeId, leaveType);
+        return this.findByEmployeeAndType(employeeId, leaveType, location);
     }
-    updateFromHcm(employeeId, leaveType, totalBalance, usedBalance, hcmVersion, expectedVersion) {
+    updateFromHcm(employeeId, leaveType, location, totalBalance, usedBalance, hcmVersion, expectedVersion) {
         const projectedAvailable = totalBalance - usedBalance;
         const result = this.dbService
             .getDb()
             .prepare(`UPDATE balance_projections
          SET total_balance = ?, used_balance = ?, projected_available = ?,
              hcm_version = ?, version = version + 1, updated_at = ?
-         WHERE employee_id = ? AND leave_type = ? AND version = ?`)
-            .run(totalBalance, usedBalance, projectedAvailable, hcmVersion, (0, utils_1.nowISO)(), employeeId, leaveType, expectedVersion);
+         WHERE employee_id = ? AND leave_type = ? AND location = ? AND version = ?`)
+            .run(totalBalance, usedBalance, projectedAvailable, hcmVersion, (0, utils_1.nowISO)(), employeeId, leaveType, location, expectedVersion);
         if (result.changes === 0) {
-            throw new exceptions_1.VersionConflictException('balance_projection', `${employeeId}/${leaveType}`);
+            throw new exceptions_1.VersionConflictException('balance_projection', `${employeeId}/${leaveType}/${location}`);
         }
-        return this.findByEmployeeAndType(employeeId, leaveType);
+        return this.findByEmployeeAndType(employeeId, leaveType, location);
     }
     findAllProjections(afterEmployeeId, limit = 50) {
         if (afterEmployeeId) {

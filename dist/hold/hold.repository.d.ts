@@ -8,11 +8,12 @@ export declare class HoldRepository {
         requestId: string;
         employeeId: string;
         leaveType: string;
+        location: string;
         holdAmount: number;
     }): BalanceHoldRow;
     findById(id: string): BalanceHoldRow | null;
     findByRequestId(requestId: string): BalanceHoldRow | null;
-    findActiveByEmployeeAndType(employeeId: string, leaveType: string): BalanceHoldRow[];
+    findActiveByEmployeeAndType(employeeId: string, leaveType: string, location: string): BalanceHoldRow[];
     release(requestId: string): void;
     convert(requestId: string): void;
 }

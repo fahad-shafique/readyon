@@ -26,9 +26,9 @@ let RequestRepository = RequestRepository_1 = class RequestRepository {
         this.dbService
             .getDb()
             .prepare(`INSERT INTO time_off_requests
-         (id, employee_id, manager_id, leave_type, start_date, end_date, hours_requested, reason, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_APPROVAL')`)
-            .run(id, params.employeeId, params.managerId || null, params.leaveType, params.startDate, params.endDate, params.hoursRequested, params.reason || '');
+         (id, employee_id, manager_id, leave_type, location, start_date, end_date, hours_requested, reason, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_APPROVAL')`)
+            .run(id, params.employeeId, params.managerId || null, params.leaveType, params.location, params.startDate, params.endDate, params.hoursRequested, params.reason || '');
         return this.findById(id);
     }
     findById(id) {

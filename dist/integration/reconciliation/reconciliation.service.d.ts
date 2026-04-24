@@ -17,6 +17,6 @@ export declare class ReconciliationService {
     private readonly autoRepairThreshold;
     constructor(dbService: DatabaseService, balanceRepo: BalanceRepository, requestRepo: RequestRepository, holdRepo: HoldRepository, auditService: AuditService, hcmAdapter: HcmAdapterPort);
     runReconciliation(): Promise<void>;
-    reconcileOne(employeeId: string, leaveType: string): Promise<'OK' | 'REPAIRED' | 'FLAGGED'>;
+    reconcileOne(employeeId: string, leaveType: string, location: string): Promise<'OK' | 'REPAIRED' | 'FLAGGED'>;
     private flagActiveHoldsForReconciliation;
 }

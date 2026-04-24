@@ -17,7 +17,7 @@ const VALID_TRANSITIONS = {
         types_1.RequestStatus.FAILED_HCM,
         types_1.RequestStatus.CANCELLED,
     ],
-    [types_1.RequestStatus.APPROVED]: [types_1.RequestStatus.RECONCILIATION_REQUIRED],
+    [types_1.RequestStatus.APPROVED]: [types_1.RequestStatus.RECONCILIATION_REQUIRED, types_1.RequestStatus.CANCELLED],
     [types_1.RequestStatus.REJECTED]: [],
     [types_1.RequestStatus.CANCELLED]: [],
     [types_1.RequestStatus.FAILED_HCM]: [types_1.RequestStatus.RECONCILIATION_REQUIRED],

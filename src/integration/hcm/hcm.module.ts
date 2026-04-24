@@ -17,4 +17,4 @@ import { CircuitBreaker } from './circuit-breaker';
   ],
   exports: [HCM_ADAPTER_PORT, CircuitBreaker],
 })
-export class HcmModule {}
+export class HcmModule { }

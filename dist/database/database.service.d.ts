@@ -7,4 +7,5 @@ export declare class DatabaseService implements OnModuleInit, OnModuleDestroy {
     onModuleDestroy(): void;
     getDb(): Database.Database;
     runInTransaction<T>(fn: (db: Database.Database) => T): T;
+    resetDatabase(): void;
 }

@@ -10,12 +10,12 @@ export class BalanceRepository {
 
   constructor(private readonly dbService: DatabaseService) {}
 
-  findByEmployeeAndType(employeeId: string, leaveType: string): BalanceProjectionRow | null {
+  findByEmployeeAndType(employeeId: string, leaveType: string, location: string): BalanceProjectionRow | null {
     return (
       (this.dbService
         .getDb()
-        .prepare('SELECT * FROM balance_projections WHERE employee_id = ? AND leave_type = ?')
-        .get(employeeId, leaveType) as BalanceProjectionRow) || null
+        .prepare('SELECT * FROM balance_projections WHERE employee_id = ? AND leave_type = ? AND location = ?')
+        .get(employeeId, leaveType, location) as BalanceProjectionRow) || null
     );
   }
 
@@ -29,11 +29,11 @@ export class BalanceRepository {
   /**
    * Calculate the sum of active holds for an employee and leave type.
    */
-  getActiveHoldsTotal(employeeId: string, leaveType: string, excludeRequestId?: string): number {
+  getActiveHoldsTotal(employeeId: string, leaveType: string, location: string, excludeRequestId?: string): number {
     let sql = `SELECT COALESCE(SUM(hold_amount), 0) as total
                FROM balance_holds
-               WHERE employee_id = ? AND leave_type = ? AND status = 'ACTIVE'`;
-    const params: unknown[] = [employeeId, leaveType];
+               WHERE employee_id = ? AND leave_type = ? AND location = ? AND status = 'ACTIVE'`;
+    const params: unknown[] = [employeeId, leaveType, location];
 
     if (excludeRequestId) {
       sql += ' AND request_id != ?';
@@ -47,11 +47,11 @@ export class BalanceRepository {
   /**
    * Get effective available balance (projected - active holds).
    */
-  getEffectiveAvailable(employeeId: string, leaveType: string, excludeRequestId?: string): number {
-    const projection = this.findByEmployeeAndType(employeeId, leaveType);
+  getEffectiveAvailable(employeeId: string, leaveType: string, location: string, excludeRequestId?: string): number {
+    const projection = this.findByEmployeeAndType(employeeId, leaveType, location);
     if (!projection) return 0;
 
-    const held = this.getActiveHoldsTotal(employeeId, leaveType, excludeRequestId);
+    const held = this.getActiveHoldsTotal(employeeId, leaveType, location, excludeRequestId);
     return projection.projected_available - held;
   }
 
@@ -61,6 +61,7 @@ export class BalanceRepository {
   create(params: {
     employeeId: string;
     leaveType: string;
+    location: string;
     totalBalance: number;
     usedBalance: number;
     hcmVersion: string;
@@ -71,19 +72,19 @@ export class BalanceRepository {
     this.dbService
       .getDb()
       .prepare(
-        `INSERT INTO balance_projections (id, employee_id, leave_type, total_balance, used_balance, projected_available, hcm_version)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO balance_projections (id, employee_id, leave_type, location, total_balance, used_balance, projected_available, hcm_version)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(id, params.employeeId, params.leaveType, params.totalBalance, params.usedBalance, projectedAvailable, params.hcmVersion);
+      .run(id, params.employeeId, params.leaveType, params.location, params.totalBalance, params.usedBalance, projectedAvailable, params.hcmVersion);
 
-    return this.findByEmployeeAndType(params.employeeId, params.leaveType)!;
+    return this.findByEmployeeAndType(params.employeeId, params.leaveType, params.location)!;
   }
 
   /**
    * Update balance after HCM confirms deduction (outbox success).
    * Increases used_balance and decreases projected_available.
    */
-  applyDeduction(employeeId: string, leaveType: string, hours: number, expectedVersion: number): BalanceProjectionRow {
+  applyDeduction(employeeId: string, leaveType: string, location: string, hours: number, expectedVersion: number): BalanceProjectionRow {
     const result = this.dbService
       .getDb()
       .prepare(
@@ -92,15 +93,15 @@ export class BalanceRepository {
              projected_available = projected_available - ?,
              version = version + 1,
              updated_at = ?
-         WHERE employee_id = ? AND leave_type = ? AND version = ?`,
+         WHERE employee_id = ? AND leave_type = ? AND location = ? AND version = ?`,
       )
-      .run(hours, hours, nowISO(), employeeId, leaveType, expectedVersion);
+      .run(hours, hours, nowISO(), employeeId, leaveType, location, expectedVersion);
 
     if (result.changes === 0) {
-      throw new VersionConflictException('balance_projection', `${employeeId}/${leaveType}`);
+      throw new VersionConflictException('balance_projection', `${employeeId}/${leaveType}/${location}`);
     }
 
-    return this.findByEmployeeAndType(employeeId, leaveType)!;
+    return this.findByEmployeeAndType(employeeId, leaveType, location)!;
   }
 
   /**
@@ -109,6 +110,7 @@ export class BalanceRepository {
   updateFromHcm(
     employeeId: string,
     leaveType: string,
+    location: string,
     totalBalance: number,
     usedBalance: number,
     hcmVersion: string,
@@ -122,15 +124,15 @@ export class BalanceRepository {
         `UPDATE balance_projections
          SET total_balance = ?, used_balance = ?, projected_available = ?,
              hcm_version = ?, version = version + 1, updated_at = ?
-         WHERE employee_id = ? AND leave_type = ? AND version = ?`,
+         WHERE employee_id = ? AND leave_type = ? AND location = ? AND version = ?`,
       )
-      .run(totalBalance, usedBalance, projectedAvailable, hcmVersion, nowISO(), employeeId, leaveType, expectedVersion);
+      .run(totalBalance, usedBalance, projectedAvailable, hcmVersion, nowISO(), employeeId, leaveType, location, expectedVersion);
 
     if (result.changes === 0) {
-      throw new VersionConflictException('balance_projection', `${employeeId}/${leaveType}`);
+      throw new VersionConflictException('balance_projection', `${employeeId}/${leaveType}/${location}`);
     }
 
-    return this.findByEmployeeAndType(employeeId, leaveType)!;
+    return this.findByEmployeeAndType(employeeId, leaveType, location)!;
   }
 
   /**

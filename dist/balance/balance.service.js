@@ -20,10 +20,12 @@ let BalanceService = class BalanceService {
     getBalances(employeeId) {
         const projections = this.balanceRepo.findByEmployee(employeeId);
         return projections.map((p) => {
-            const held = this.balanceRepo.getActiveHoldsTotal(p.employee_id, p.leave_type);
+            const loc = p.location || 'HQ';
+            const held = this.balanceRepo.getActiveHoldsTotal(p.employee_id, p.leave_type, loc);
             return {
                 employee_id: p.employee_id,
                 leave_type: p.leave_type,
+                location: loc,
                 total_balance: p.total_balance,
                 used_balance: p.used_balance,
                 held_balance: held,
@@ -33,14 +35,16 @@ let BalanceService = class BalanceService {
             };
         });
     }
-    getBalanceByType(employeeId, leaveType) {
-        const p = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType);
+    getBalanceByType(employeeId, leaveType, location = 'HQ') {
+        const p = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType, location);
         if (!p)
             return null;
-        const held = this.balanceRepo.getActiveHoldsTotal(p.employee_id, p.leave_type);
+        const loc = p.location || 'HQ';
+        const held = this.balanceRepo.getActiveHoldsTotal(p.employee_id, p.leave_type, loc);
         return {
             employee_id: p.employee_id,
             leave_type: p.leave_type,
+            location: loc,
             total_balance: p.total_balance,
             used_balance: p.used_balance,
             held_balance: held,

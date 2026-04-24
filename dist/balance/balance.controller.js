@@ -21,12 +21,13 @@ let BalanceController = class BalanceController {
     constructor(balanceService) {
         this.balanceService = balanceService;
     }
-    getBalances(req, leaveType) {
+    getBalances(req, leaveType, location) {
         const employeeId = req.headers['x-employee-id'];
         if (leaveType) {
-            const balance = this.balanceService.getBalanceByType(employeeId, leaveType);
+            const loc = location || 'HQ';
+            const balance = this.balanceService.getBalanceByType(employeeId, leaveType, loc);
             if (!balance) {
-                throw new exceptions_1.NotFoundException('balance', `${employeeId}/${leaveType}`);
+                throw new exceptions_1.NotFoundException('balance', `${employeeId}/${leaveType}/${loc}`);
             }
             return { data: [balance] };
         }
@@ -43,8 +44,9 @@ __decorate([
     (0, common_1.HttpCode)(200),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Query)('leave_type')),
+    __param(2, (0, common_1.Query)('location')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], BalanceController.prototype, "getBalances", null);
 exports.BalanceController = BalanceController = __decorate([

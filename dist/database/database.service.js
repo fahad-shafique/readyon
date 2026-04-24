@@ -75,6 +75,23 @@ let DatabaseService = DatabaseService_1 = class DatabaseService {
         const transaction = this.db.transaction(fn);
         return transaction(this.db);
     }
+    resetDatabase() {
+        const tables = this.db
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+            .all();
+        this.db.prepare('PRAGMA foreign_keys = OFF').run();
+        try {
+            this.db.transaction(() => {
+                for (const table of tables) {
+                    this.db.prepare(`DELETE FROM ${table.name}`).run();
+                }
+            })();
+        }
+        finally {
+            this.db.prepare('PRAGMA foreign_keys = ON').run();
+        }
+        this.logger.log('All database tables cleared');
+    }
 };
 exports.DatabaseService = DatabaseService;
 exports.DatabaseService = DatabaseService = DatabaseService_1 = __decorate([

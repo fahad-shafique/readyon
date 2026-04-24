@@ -61,6 +61,7 @@ export interface BalanceProjectionRow {
     id: string;
     employee_id: string;
     leave_type: string;
+    location: string | null;
     total_balance: number;
     used_balance: number;
     projected_available: number;
@@ -74,6 +75,7 @@ export interface TimeOffRequestRow {
     employee_id: string;
     manager_id: string | null;
     leave_type: string;
+    location: string | null;
     start_date: string;
     end_date: string;
     hours_requested: number;
@@ -90,6 +92,7 @@ export interface BalanceHoldRow {
     request_id: string;
     employee_id: string;
     leave_type: string;
+    location: string | null;
     hold_amount: number;
     status: HoldStatus;
     released_at: string | null;

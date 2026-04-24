@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsNumber, ValidateNested, Min } from 'class-validator';
+import { IsString, IsArray, IsNumber, ValidateNested, Min, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class BatchSyncItemDto {
@@ -7,6 +7,10 @@ export class BatchSyncItemDto {
 
   @IsString()
   leave_type!: string;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
 
   @IsNumber()
   @Min(0)
@@ -36,6 +40,10 @@ export class SingleBalanceUpdateDto {
 
   @IsString()
   leave_type!: string;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
 
   @IsNumber()
   @Min(0)

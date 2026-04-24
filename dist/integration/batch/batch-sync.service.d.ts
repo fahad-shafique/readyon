@@ -8,6 +8,7 @@ import type { HcmAdapterPort } from '../hcm/hcm-adapter.port';
 export interface BatchSyncItem {
     employee_id: string;
     leave_type: string;
+    location?: string;
     total_balance: number;
     used_balance: number;
     hcm_version: string;

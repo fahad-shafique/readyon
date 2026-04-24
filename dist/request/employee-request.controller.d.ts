@@ -25,6 +25,7 @@ export declare class EmployeeRequestController {
             employee_id: string;
             manager_id: string | null;
             leave_type: string;
+            location: string | null;
             start_date: string;
             end_date: string;
             hours_requested: number;

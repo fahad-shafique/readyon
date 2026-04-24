@@ -15,6 +15,7 @@ const class_transformer_1 = require("class-transformer");
 class BatchSyncItemDto {
     employee_id;
     leave_type;
+    location;
     total_balance;
     used_balance;
     hcm_version;
@@ -28,6 +29,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], BatchSyncItemDto.prototype, "leave_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], BatchSyncItemDto.prototype, "location", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0),
@@ -60,6 +66,7 @@ __decorate([
 class SingleBalanceUpdateDto {
     employee_id;
     leave_type;
+    location;
     total_balance;
     used_balance;
     hcm_version;
@@ -73,6 +80,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], SingleBalanceUpdateDto.prototype, "leave_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], SingleBalanceUpdateDto.prototype, "location", void 0);
 __decorate([
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0),

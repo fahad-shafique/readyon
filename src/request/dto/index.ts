@@ -16,6 +16,10 @@ export class CreateTimeOffRequestDto {
 
   @IsOptional()
   @IsString()
+  location?: string;
+
+  @IsOptional()
+  @IsString()
   reason?: string;
 }
 

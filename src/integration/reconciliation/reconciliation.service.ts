@@ -49,7 +49,8 @@ export class ReconciliationService {
 
     for (const projection of projections) {
       try {
-        const result = await this.reconcileOne(projection.employee_id, projection.leave_type);
+        const loc = projection.location || 'HQ';
+        const result = await this.reconcileOne(projection.employee_id, projection.leave_type, loc);
         checked++;
         if (result === 'REPAIRED') {
           driftsFound++;
@@ -72,7 +73,7 @@ export class ReconciliationService {
     );
   }
 
-  async reconcileOne(employeeId: string, leaveType: string): Promise<'OK' | 'REPAIRED' | 'FLAGGED'> {
+  async reconcileOne(employeeId: string, leaveType: string, location: string): Promise<'OK' | 'REPAIRED' | 'FLAGGED'> {
     // Fetch from HCM
     const hcmBalance = await this.hcmAdapter.getBalance({
       employee_id: employeeId,
@@ -81,7 +82,7 @@ export class ReconciliationService {
     });
 
     // Load local
-    const local = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType);
+    const local = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType, location);
     if (!local) {
       this.logger.warn(`No local projection for ${employeeId}/${leaveType} during reconciliation`);
       return 'OK';
@@ -98,7 +99,7 @@ export class ReconciliationService {
       if (hcmBalance.hcm_version > local.hcm_version) {
         this.dbService.runInTransaction(() => {
           this.balanceRepo.updateFromHcm(
-            employeeId, leaveType,
+            employeeId, leaveType, location,
             hcmBalance.total_balance, hcmBalance.used_balance,
             hcmBalance.hcm_version, local.version,
           );
@@ -116,21 +117,21 @@ export class ReconciliationService {
     if (effectiveDrift <= this.autoRepairThreshold) {
       // Auto-repair
       this.dbService.runInTransaction(() => {
-        const current = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType);
+        const current = this.balanceRepo.findByEmployeeAndType(employeeId, leaveType, location);
         if (!current) return;
 
         const beforeState = { ...current };
         this.balanceRepo.updateFromHcm(
-          employeeId, leaveType,
+          employeeId, leaveType, location,
           hcmBalance.total_balance, hcmBalance.used_balance,
           hcmBalance.hcm_version, current.version,
         );
 
         // Revalidate holds after repair
         const newProjected = hcmBalance.total_balance - hcmBalance.used_balance;
-        const totalHeld = this.balanceRepo.getActiveHoldsTotal(employeeId, leaveType);
+        const totalHeld = this.balanceRepo.getActiveHoldsTotal(employeeId, leaveType, location);
         if (newProjected - totalHeld < 0) {
-          this.flagActiveHoldsForReconciliation(employeeId, leaveType);
+          this.flagActiveHoldsForReconciliation(employeeId, leaveType, location);
         }
 
         this.auditService.logInTransaction({
@@ -150,7 +151,7 @@ export class ReconciliationService {
 
     // Flag for manual review
     this.dbService.runInTransaction(() => {
-      this.flagActiveHoldsForReconciliation(employeeId, leaveType);
+      this.flagActiveHoldsForReconciliation(employeeId, leaveType, location);
 
       this.auditService.logInTransaction({
         entityType: EntityType.BALANCE,
@@ -171,8 +172,8 @@ export class ReconciliationService {
     return 'FLAGGED';
   }
 
-  private flagActiveHoldsForReconciliation(employeeId: string, leaveType: string): void {
-    const activeHolds = this.holdRepo.findActiveByEmployeeAndType(employeeId, leaveType);
+  private flagActiveHoldsForReconciliation(employeeId: string, leaveType: string, location: string): void {
+    const activeHolds = this.holdRepo.findActiveByEmployeeAndType(employeeId, leaveType, location);
     for (const hold of activeHolds) {
       const request = this.requestRepo.findById(hold.request_id);
       if (request && request.status !== RequestStatus.RECONCILIATION_REQUIRED) {

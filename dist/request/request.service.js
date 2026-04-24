@@ -47,20 +47,22 @@ let RequestService = RequestService_1 = class RequestService {
             throw new exceptions_1.ValidationException('start_date must be in the future');
         }
         return this.dbService.runInTransaction(() => {
-            const projection = this.balanceRepo.findByEmployeeAndType(employeeId, dto.leave_type);
+            const loc = dto.location || 'HQ';
+            const projection = this.balanceRepo.findByEmployeeAndType(employeeId, dto.leave_type, loc);
             if (!projection) {
-                throw new exceptions_1.NotFoundException('balance_projection', `${employeeId}/${dto.leave_type}`);
+                throw new exceptions_1.NotFoundException('balance_projection', `${employeeId}/${dto.leave_type}/${loc}`);
             }
             if (this.requestRepo.hasOverlap(employeeId, dto.leave_type, dto.start_date, dto.end_date)) {
                 throw new exceptions_1.OverlappingRequestException(employeeId, dto.start_date, dto.end_date);
             }
-            const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(employeeId, dto.leave_type);
+            const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(employeeId, dto.leave_type, loc);
             if (effectiveAvailable < dto.hours_requested) {
                 throw new exceptions_1.InsufficientBalanceException(effectiveAvailable, dto.hours_requested, dto.leave_type);
             }
             const request = this.requestRepo.create({
                 employeeId,
                 leaveType: dto.leave_type,
+                location: loc,
                 startDate: dto.start_date,
                 endDate: dto.end_date,
                 hoursRequested: dto.hours_requested,
@@ -70,6 +72,7 @@ let RequestService = RequestService_1 = class RequestService {
                 requestId: request.id,
                 employeeId,
                 leaveType: dto.leave_type,
+                location: loc,
                 holdAmount: dto.hours_requested,
             });
             this.auditService.logInTransaction({
@@ -144,6 +147,19 @@ let RequestService = RequestService_1 = class RequestService {
             if (request.status === types_1.RequestStatus.APPROVED_PENDING_HCM) {
                 this.outboxRepo.cancelByRequestId(requestId);
             }
+            if (request.status === types_1.RequestStatus.APPROVED) {
+                const idempotencyKey = `cancel-${requestId}-${(0, utils_1.generateId)()}`;
+                this.outboxRepo.create({
+                    requestId,
+                    action: types_1.OutboxAction.CANCEL_TIME_OFF,
+                    idempotencyKey,
+                    payload: JSON.stringify({
+                        employee_id: request.employee_id,
+                        leave_type: request.leave_type,
+                        hcm_reference_id: request.hcm_reference_id
+                    })
+                });
+            }
             this.auditService.logInTransaction({
                 entityType: types_1.EntityType.REQUEST,
                 entityId: requestId,
@@ -177,7 +193,8 @@ let RequestService = RequestService_1 = class RequestService {
             if (request.version !== dto.version) {
                 throw new exceptions_1.VersionConflictException('time_off_request', requestId);
             }
-            const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(request.employee_id, request.leave_type, requestId);
+            const loc = request.location || 'HQ';
+            const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(request.employee_id, request.leave_type, loc, requestId);
             if (effectiveAvailable < request.hours_requested) {
                 throw new exceptions_1.InsufficientBalanceException(effectiveAvailable, request.hours_requested, request.leave_type);
             }

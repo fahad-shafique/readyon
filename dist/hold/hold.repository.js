@@ -24,9 +24,9 @@ let HoldRepository = HoldRepository_1 = class HoldRepository {
         const id = (0, utils_1.generateId)();
         this.dbService
             .getDb()
-            .prepare(`INSERT INTO balance_holds (id, request_id, employee_id, leave_type, hold_amount, status)
-         VALUES (?, ?, ?, ?, ?, 'ACTIVE')`)
-            .run(id, params.requestId, params.employeeId, params.leaveType, params.holdAmount);
+            .prepare(`INSERT INTO balance_holds (id, request_id, employee_id, leave_type, location, hold_amount, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')`)
+            .run(id, params.requestId, params.employeeId, params.leaveType, params.location, params.holdAmount);
         return this.findById(id);
     }
     findById(id) {
@@ -38,12 +38,12 @@ let HoldRepository = HoldRepository_1 = class HoldRepository {
             .prepare('SELECT * FROM balance_holds WHERE request_id = ?')
             .get(requestId) || null);
     }
-    findActiveByEmployeeAndType(employeeId, leaveType) {
+    findActiveByEmployeeAndType(employeeId, leaveType, location) {
         return this.dbService
             .getDb()
             .prepare(`SELECT * FROM balance_holds
-         WHERE employee_id = ? AND leave_type = ? AND status = 'ACTIVE'`)
-            .all(employeeId, leaveType);
+         WHERE employee_id = ? AND leave_type = ? AND location = ? AND status = 'ACTIVE'`)
+            .all(employeeId, leaveType, location);
     }
     release(requestId) {
         const result = this.dbService

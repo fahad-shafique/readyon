@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Req, HttpCode, HttpStatus, Inject } from '@nestjs/common';
 import { BatchSyncService } from './batch/batch-sync.service';
 import { BalanceRepository } from '../balance/balance.repository';
 import { AuditService } from '../audit/audit.service';
@@ -7,6 +7,9 @@ import { DatabaseService } from '../database/database.service';
 import { BatchSyncRequestDto, SingleBalanceUpdateDto } from './dto';
 import { ValidationException, DuplicateRequestException, StaleBatchException } from '../common/exceptions';
 import { EntityType, ActorType } from '../common/types';
+import { HCM_ADAPTER_PORT } from './hcm/hcm-adapter.port';
+import type { HcmAdapterPort } from './hcm/hcm-adapter.port';
+import { MockHcmAdapter } from './hcm/mock-hcm-adapter';
 
 @Controller('api/v1/integrations/hcm')
 export class IntegrationController {
@@ -16,7 +19,37 @@ export class IntegrationController {
     private readonly auditService: AuditService,
     private readonly idempotencyService: IdempotencyService,
     private readonly dbService: DatabaseService,
-  ) {}
+    @Inject(HCM_ADAPTER_PORT) private readonly hcmAdapter: HcmAdapterPort,
+  ) { }
+
+  @Post('mock-failures')
+  @HttpCode(HttpStatus.OK)
+  mockFailures(@Body() dto: any) {
+    if (!(this.hcmAdapter instanceof MockHcmAdapter)) {
+      return { status: 'ignored', reason: 'HCM Adapter is not Mock' };
+    }
+
+    if (dto.reset) {
+      if (this.hcmAdapter instanceof MockHcmAdapter) {
+        this.hcmAdapter.reset();
+      }
+      this.dbService.resetDatabase();
+      return { status: 'reset' };
+    }
+
+    if (dto.mode) {
+      this.hcmAdapter.addFailure({
+        mode: dto.mode,
+        countdown: dto.countdown || 0,
+        failureCount: dto.failureCount || 1,
+        operation: dto.operation || null,
+        employeeId: dto.employeeId || null,
+      });
+      return { status: 'failure_added', config: dto };
+    }
+
+    return { status: 'no_action' };
+  }
 
   @Post('batch-sync')
   @HttpCode(HttpStatus.OK)
@@ -50,7 +83,8 @@ export class IntegrationController {
     }
 
     const result = this.dbService.runInTransaction(() => {
-      const local = this.balanceRepo.findByEmployeeAndType(dto.employee_id, dto.leave_type);
+      const loc = dto.location || 'HQ';
+      const local = this.balanceRepo.findByEmployeeAndType(dto.employee_id, dto.leave_type, loc);
 
       if (local && dto.hcm_version <= local.hcm_version) {
         throw new StaleBatchException(dto.employee_id, dto.leave_type);
@@ -62,6 +96,7 @@ export class IntegrationController {
         this.balanceRepo.create({
           employeeId: dto.employee_id,
           leaveType: dto.leave_type,
+          location: loc,
           totalBalance: dto.total_balance,
           usedBalance: dto.used_balance,
           hcmVersion: dto.hcm_version,
@@ -70,6 +105,7 @@ export class IntegrationController {
         this.balanceRepo.updateFromHcm(
           dto.employee_id,
           dto.leave_type,
+          loc,
           dto.total_balance,
           dto.used_balance,
           dto.hcm_version,
@@ -77,7 +113,16 @@ export class IntegrationController {
         );
       }
 
-      const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(dto.employee_id, dto.leave_type);
+      // Sync with Mock HCM if applicable
+      if (this.hcmAdapter instanceof MockHcmAdapter) {
+        this.hcmAdapter.setBalance(dto.employee_id, dto.leave_type, {
+          total_balance: dto.total_balance,
+          used_balance: dto.used_balance,
+          hcm_version: dto.hcm_version,
+        });
+      }
+
+      const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(dto.employee_id, dto.leave_type, loc);
 
       this.auditService.logInTransaction({
         entityType: EntityType.BALANCE,

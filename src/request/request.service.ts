@@ -44,10 +44,12 @@ export class RequestService {
     }
 
     return this.dbService.runInTransaction(() => {
+      const loc = dto.location || 'HQ';
+
       // Check balance projection exists
-      const projection = this.balanceRepo.findByEmployeeAndType(employeeId, dto.leave_type);
+      const projection = this.balanceRepo.findByEmployeeAndType(employeeId, dto.leave_type, loc);
       if (!projection) {
-        throw new NotFoundException('balance_projection', `${employeeId}/${dto.leave_type}`);
+        throw new NotFoundException('balance_projection', `${employeeId}/${dto.leave_type}/${loc}`);
       }
 
       // Check overlapping requests
@@ -56,7 +58,7 @@ export class RequestService {
       }
 
       // Calculate effective available
-      const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(employeeId, dto.leave_type);
+      const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(employeeId, dto.leave_type, loc);
       if (effectiveAvailable < dto.hours_requested) {
         throw new InsufficientBalanceException(effectiveAvailable, dto.hours_requested, dto.leave_type);
       }
@@ -65,6 +67,7 @@ export class RequestService {
       const request = this.requestRepo.create({
         employeeId,
         leaveType: dto.leave_type,
+        location: loc,
         startDate: dto.start_date,
         endDate: dto.end_date,
         hoursRequested: dto.hours_requested,
@@ -76,6 +79,7 @@ export class RequestService {
         requestId: request.id,
         employeeId,
         leaveType: dto.leave_type,
+        location: loc,
         holdAmount: dto.hours_requested,
       });
 
@@ -181,6 +185,21 @@ export class RequestService {
         this.outboxRepo.cancelByRequestId(requestId);
       }
 
+      // Compensating transaction if already synced
+      if (request.status === RequestStatus.APPROVED) {
+        const idempotencyKey = `cancel-${requestId}-${generateId()}`;
+        this.outboxRepo.create({
+          requestId,
+          action: OutboxAction.CANCEL_TIME_OFF,
+          idempotencyKey,
+          payload: JSON.stringify({
+            employee_id: request.employee_id,
+            leave_type: request.leave_type,
+            hcm_reference_id: request.hcm_reference_id
+          })
+        });
+      }
+
       // Audit
       this.auditService.logInTransaction({
         entityType: EntityType.REQUEST,
@@ -227,9 +246,11 @@ export class RequestService {
       }
 
       // CRITICAL: Revalidate balance (exclude this request's hold)
+      const loc = request.location || 'HQ';
       const effectiveAvailable = this.balanceRepo.getEffectiveAvailable(
         request.employee_id,
         request.leave_type,
+        loc,
         requestId,
       );
       if (effectiveAvailable < request.hours_requested) {

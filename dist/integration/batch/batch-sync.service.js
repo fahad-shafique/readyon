@@ -87,11 +87,13 @@ let BatchSyncService = BatchSyncService_1 = class BatchSyncService {
     }
     processItem(item) {
         return this.dbService.runInTransaction(() => {
-            const local = this.balanceRepo.findByEmployeeAndType(item.employee_id, item.leave_type);
+            const loc = item.location || 'HQ';
+            const local = this.balanceRepo.findByEmployeeAndType(item.employee_id, item.leave_type, loc);
             if (!local) {
                 this.balanceRepo.create({
                     employeeId: item.employee_id,
                     leaveType: item.leave_type,
+                    location: loc,
                     totalBalance: item.total_balance,
                     usedBalance: item.used_balance,
                     hcmVersion: item.hcm_version,
@@ -112,14 +114,14 @@ let BatchSyncService = BatchSyncService_1 = class BatchSyncService {
                 return 'SKIPPED_STALE';
             }
             const beforeState = { ...local };
-            this.balanceRepo.updateFromHcm(item.employee_id, item.leave_type, item.total_balance, item.used_balance, item.hcm_version, local.version);
+            this.balanceRepo.updateFromHcm(item.employee_id, item.leave_type, loc, item.total_balance, item.used_balance, item.hcm_version, local.version);
             const newProjected = item.total_balance - item.used_balance;
-            const totalHeld = this.balanceRepo.getActiveHoldsTotal(item.employee_id, item.leave_type);
+            const totalHeld = this.balanceRepo.getActiveHoldsTotal(item.employee_id, item.leave_type, loc);
             const newEffective = newProjected - totalHeld;
             if (newEffective < 0) {
                 this.logger.warn(`Balance update for ${item.employee_id}/${item.leave_type} causes holds to exceed available. ` +
                     `New projected: ${newProjected}, held: ${totalHeld}, effective: ${newEffective}`);
-                const activeHolds = this.holdRepo.findActiveByEmployeeAndType(item.employee_id, item.leave_type);
+                const activeHolds = this.holdRepo.findActiveByEmployeeAndType(item.employee_id, item.leave_type, loc);
                 for (const hold of activeHolds) {
                     const request = this.requestRepo.findById(hold.request_id);
                     if (request && request.status !== types_1.RequestStatus.RECONCILIATION_REQUIRED) {

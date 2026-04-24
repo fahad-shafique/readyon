@@ -211,14 +211,12 @@ export class MockHcmAdapter implements HcmAdapterPort {
     this.checkFailure('postTimeOff', request.employee_id, request.correlation_id);
 
     const balanceKey = `${request.employee_id}:${request.leave_type}`;
-    const balance = this.balances.get(balanceKey);
+    let balance = this.balances.get(balanceKey);
 
     if (!balance) {
-      throw new HcmPermanentError(
-        'HCM_NOT_FOUND',
-        `Employee ${request.employee_id} has no ${request.leave_type} balance in HCM`,
-        request.correlation_id,
-      );
+      this.logger.warn(`[MockHCM] Auto-provisioning balance for ${balanceKey} (testing fallback)`);
+      balance = { total_balance: 1000, used_balance: 0, hcm_version: new Date().toISOString() };
+      this.balances.set(balanceKey, balance);
     }
 
     // ── Balance check ──

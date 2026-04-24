@@ -10,6 +10,7 @@ const balance_repository_1 = require("../balance/balance.repository");
 const request_service_1 = require("../request/request.service");
 const request_repository_1 = require("../request/request.repository");
 const hcm_adapter_port_1 = require("../integration/hcm/hcm-adapter.port");
+const mock_hcm_adapter_1 = require("../integration/hcm/mock-hcm-adapter");
 const audit_service_1 = require("../audit/audit.service");
 const idempotency_service_1 = require("../idempotency/idempotency.service");
 const hold_repository_1 = require("../hold/hold.repository");
@@ -24,11 +25,13 @@ async function createTestContext() {
     process.env.DB_PATH = ':memory:';
     const module = await testing_1.Test.createTestingModule({
         imports: [app_module_1.AppModule],
-    }).compile();
+    })
+        .overrideProvider(hcm_adapter_port_1.HCM_ADAPTER_PORT)
+        .useClass(mock_hcm_adapter_1.MockHcmAdapter)
+        .compile();
     const app = module.createNestApplication();
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
-        forbidNonWhitelisted: true,
         transform: true,
         transformOptions: { enableImplicitConversion: true },
     }));
@@ -57,6 +60,7 @@ function seedTestData(ctx) {
     ctx.balanceRepo.create({
         employeeId: 'emp-001',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 120,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -64,6 +68,7 @@ function seedTestData(ctx) {
     ctx.balanceRepo.create({
         employeeId: 'emp-001',
         leaveType: 'SICK',
+        location: 'HQ',
         totalBalance: 40,
         usedBalance: 8,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -71,6 +76,7 @@ function seedTestData(ctx) {
     ctx.balanceRepo.create({
         employeeId: 'emp-002',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 80,
         usedBalance: 16,
         hcmVersion: '2026-01-01T00:00:00Z',

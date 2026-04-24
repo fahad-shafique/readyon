@@ -11,13 +11,15 @@ export class BalanceController {
   getBalances(
     @Req() req: any,
     @Query('leave_type') leaveType?: string,
+    @Query('location') location?: string,
   ) {
     const employeeId = req.headers['x-employee-id'];
 
     if (leaveType) {
-      const balance = this.balanceService.getBalanceByType(employeeId, leaveType);
+      const loc = location || 'HQ';
+      const balance = this.balanceService.getBalanceByType(employeeId, leaveType, loc);
       if (!balance) {
-        throw new NotFoundException('balance', `${employeeId}/${leaveType}`);
+        throw new NotFoundException('balance', `${employeeId}/${leaveType}/${loc}`);
       }
       return { data: [balance] };
     }
