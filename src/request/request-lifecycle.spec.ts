@@ -37,7 +37,7 @@ describe('Request Lifecycle (Integration)', () => {
       expect(hold!.status).toBe(HoldStatus.ACTIVE);
 
       // Verify effective available decreased
-      const effective = ctx.balanceRepo.getEffectiveAvailable('emp-001', 'PTO');
+      const effective = ctx.balanceRepo.getEffectiveAvailable('emp-001', 'PTO', 'HQ');
       expect(effective).toBe(120 - 16); // 104
     });
 
@@ -48,6 +48,7 @@ describe('Request Lifecycle (Integration)', () => {
           start_date: '2026-12-10',
           end_date: '2026-12-30',
           hours_requested: 200, // More than available
+          location: 'HQ',
         }),
       ).toThrow();
     });
@@ -97,7 +98,7 @@ describe('Request Lifecycle (Integration)', () => {
         hours_requested: 8,
       });
 
-      const effectiveBefore = ctx.balanceRepo.getEffectiveAvailable('emp-001', 'SICK');
+      const effectiveBefore = ctx.balanceRepo.getEffectiveAvailable('emp-001', 'SICK', 'HQ');
 
       const result = ctx.requestService.cancelRequest(created.id, 'emp-001', {
         version: created.version,
@@ -112,7 +113,7 @@ describe('Request Lifecycle (Integration)', () => {
       expect(hold!.status).toBe(HoldStatus.RELEASED);
 
       // Verify balance restored
-      const effectiveAfter = ctx.balanceRepo.getEffectiveAvailable('emp-001', 'SICK');
+      const effectiveAfter = ctx.balanceRepo.getEffectiveAvailable('emp-001', 'SICK', 'HQ');
       expect(effectiveAfter).toBe(effectiveBefore + 8);
     });
 

@@ -366,6 +366,7 @@ describe('Integration Scenarios (e2e)', () => {
       await seedBalance(EMP, LEAVE_TYPE, 40, 0);
       
       const reqRes = await createRequest(EMP, LEAVE_TYPE, 4, '2027-04-01', 'can-sync-req');
+      expect(reqRes.status).toBe(201);
       const requestId = reqRes.body.data.id;
 
       await approveRequest(requestId, reqRes.body.data.version, MANAGER_ID, 'can-sync-app');

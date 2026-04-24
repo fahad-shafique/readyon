@@ -28,7 +28,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
       expect(result.status).toBe('COMPLETED');
       expect(result.processed_items).toBe(1);
 
-      const balance = ctx.balanceRepo.findByEmployeeAndType('batch-emp-001', 'PTO');
+      const balance = ctx.balanceRepo.findByEmployeeAndType('batch-emp-001', 'PTO', 'HQ');
       expect(balance).toBeDefined();
       expect(balance!.total_balance).toBe(120);
       expect(balance!.used_balance).toBe(16);
@@ -47,7 +47,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
 
       expect(result.processed_items).toBe(1);
 
-      const balance = ctx.balanceRepo.findByEmployeeAndType('batch-emp-001', 'PTO');
+      const balance = ctx.balanceRepo.findByEmployeeAndType('batch-emp-001', 'PTO', 'HQ');
       expect(balance!.used_balance).toBe(24);
     });
 
@@ -65,7 +65,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
       expect(result.skipped_items).toBe(1);
 
       // Balance should NOT have changed
-      const balance = ctx.balanceRepo.findByEmployeeAndType('batch-emp-001', 'PTO');
+      const balance = ctx.balanceRepo.findByEmployeeAndType('batch-emp-001', 'PTO', 'HQ');
       expect(balance!.used_balance).toBe(24); // unchanged from batch-002
     });
 
@@ -88,6 +88,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
       ctx.balanceRepo.create({
         employeeId: 'batch-emp-003',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 80,
         usedBalance: 0,
         hcmVersion: '2026-06-01T00:00:00Z',
@@ -133,6 +134,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
       ctx.balanceRepo.create({
         employeeId: 'recon-001',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 100,
         usedBalance: 20,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -144,7 +146,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
         hcm_version: '2026-02-01T00:00:00Z',
       });
 
-      const result = await ctx.reconciliationService.reconcileOne('recon-001', 'PTO');
+      const result = await ctx.reconciliationService.reconcileOne('recon-001', 'PTO', 'HQ');
       expect(result).toBe('OK');
     });
 
@@ -152,6 +154,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
       ctx.balanceRepo.create({
         employeeId: 'recon-002',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 100,
         usedBalance: 20,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -164,11 +167,11 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
         hcm_version: '2026-02-01T00:00:00Z',
       });
 
-      const result = await ctx.reconciliationService.reconcileOne('recon-002', 'PTO');
+      const result = await ctx.reconciliationService.reconcileOne('recon-002', 'PTO', 'HQ');
       expect(result).toBe('REPAIRED');
 
       // Local should now match HCM
-      const balance = ctx.balanceRepo.findByEmployeeAndType('recon-002', 'PTO');
+      const balance = ctx.balanceRepo.findByEmployeeAndType('recon-002', 'PTO', 'HQ');
       expect(balance!.used_balance).toBe(24);
     });
 
@@ -176,6 +179,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
       ctx.balanceRepo.create({
         employeeId: 'recon-003',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 100,
         usedBalance: 20,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -188,7 +192,7 @@ describe('Batch Sync & Reconciliation (Integration)', () => {
         hcm_version: '2026-02-01T00:00:00Z',
       });
 
-      const result = await ctx.reconciliationService.reconcileOne('recon-003', 'PTO');
+      const result = await ctx.reconciliationService.reconcileOne('recon-003', 'PTO', 'HQ');
       expect(result).toBe('FLAGGED');
     });
   });

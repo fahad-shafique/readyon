@@ -20,6 +20,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ctx.balanceRepo.create({
         employeeId: 'conc-001',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 40,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -60,7 +61,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ).toThrow();
 
       // Verify effective available is exactly 0
-      const effective = ctx.balanceRepo.getEffectiveAvailable('conc-001', 'PTO');
+      const effective = ctx.balanceRepo.getEffectiveAvailable('conc-001', 'PTO', 'HQ');
       expect(effective).toBe(0);
     });
 
@@ -68,6 +69,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ctx.balanceRepo.create({
         employeeId: 'conc-002',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 40,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -81,14 +83,14 @@ describe('Concurrency & Balance Invariant Tests', () => {
         hours_requested: 24,
       });
 
-      expect(ctx.balanceRepo.getEffectiveAvailable('conc-002', 'PTO')).toBe(16);
+      expect(ctx.balanceRepo.getEffectiveAvailable('conc-002', 'PTO', 'HQ')).toBe(16);
 
       ctx.requestService.cancelRequest(req.id, 'conc-002', {
         version: req.version,
       });
 
       // Balance should be fully restored
-      expect(ctx.balanceRepo.getEffectiveAvailable('conc-002', 'PTO')).toBe(40);
+      expect(ctx.balanceRepo.getEffectiveAvailable('conc-002', 'PTO', 'HQ')).toBe(40);
     });
   });
 
@@ -99,6 +101,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ctx.balanceRepo.create({
         employeeId: 'conc-003',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 80,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -128,6 +131,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ctx.balanceRepo.create({
         employeeId: 'conc-004',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 80,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -162,6 +166,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ctx.balanceRepo.create({
         employeeId: 'hold-001',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 80,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -203,6 +208,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ctx.balanceRepo.create({
         employeeId: 'hold-002',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 80,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',
@@ -234,6 +240,7 @@ describe('Concurrency & Balance Invariant Tests', () => {
       ctx.balanceRepo.create({
         employeeId: 'reval-001',
         leaveType: 'PTO',
+        location: 'HQ',
         totalBalance: 16,
         usedBalance: 0,
         hcmVersion: '2026-01-01T00:00:00Z',

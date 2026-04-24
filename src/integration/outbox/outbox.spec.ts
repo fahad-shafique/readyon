@@ -26,7 +26,7 @@ describe('Outbox Processor (Integration)', () => {
       version: created.version,
     });
 
-    const balanceBefore = ctx.balanceRepo.findByEmployeeAndType('emp-001', 'PTO');
+    const balanceBefore = ctx.balanceRepo.findByEmployeeAndType('emp-001', 'PTO', 'HQ');
 
     // Process outbox
     const processed = await ctx.outboxProcessor.sweep();
@@ -46,7 +46,7 @@ describe('Outbox Processor (Integration)', () => {
     expect(outbox!.status).toBe('COMPLETED');
 
     // Verify balance deducted
-    const balanceAfter = ctx.balanceRepo.findByEmployeeAndType('emp-001', 'PTO');
+    const balanceAfter = ctx.balanceRepo.findByEmployeeAndType('emp-001', 'PTO', 'HQ');
     expect(balanceAfter!.used_balance).toBe(balanceBefore!.used_balance + 8);
 
     // Verify mock HCM tracked the deduction
