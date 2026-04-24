@@ -2,6 +2,8 @@
 
 A production-grade, transactional **Time-Off Management Microservice** built with **NestJS** and **SQLite**. Designed for organizations that treat an external HCM system as the definitive source of truth while maintaining fast local reads, overbooking prevention, and eventual consistency via an asynchronous outbox pattern.
 
+> 📄 **[Technical Requirements Document (TRD)](./TRD.md)** — Full system design, architecture decisions, data model, API contracts, state machine, HCM integration, and test strategy.
+
 ---
 
 ## Table of Contents
